@@ -83,7 +83,6 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request, playerName string
 		return
 	}
 
-	hub.Lock()
 	client := &Client{
 		UID:         time.Now().UnixMicro(),
 		Name:        playerName,

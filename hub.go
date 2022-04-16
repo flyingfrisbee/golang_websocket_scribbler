@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -50,30 +49,46 @@ func newHub() *Hub {
 
 func (h *Hub) run() {
 	defer func() {
+		if len(h.Clients) != 0 {
+			for cl := range h.Clients {
+				delete(h.Clients, cl)
+				close(cl.Send)
+			}
+		}
+
 		close(h.Broadcast)
 		close(h.Register)
-		close(h.Unregister)
+		// close(h.Unregister)
 		DeleteHub(h)
 	}()
+
+	h.startChannelListener()
+}
+
+func (h *Hub) startChannelListener() {
+	defer h.Unlock()
 
 	for {
 		select {
 		case client := <-h.Register:
 
+			h.Lock()
 			h.Clients[client] = client.UID
 			if len(h.Clients) == 1 {
 				h.CurrentlyDrawing = client.UID
 			}
 			h.Unlock()
 
-			//tiap orang masuk balikin semua status: list[nama, skor, uid] & currently drawing
-			h.RLock()
 			ShowGameStatToPlayers(h)
-			h.RUnlock()
 
 		case client := <-h.Unregister:
 
 			h.Lock()
+			//user forcefully exit the game while in turn, resulting in room closing
+			if h.Clients[client] == h.CurrentlyDrawing {
+				return
+			}
+
 			orderPlaceholder := client.Order
 
 			if _, ok := h.Clients[client]; ok {
@@ -81,6 +96,7 @@ func (h *Hub) run() {
 				close(client.Send)
 			}
 
+			// no more player left, close the room
 			if len(h.Clients) == 0 {
 				return
 			}
@@ -92,20 +108,109 @@ func (h *Hub) run() {
 			}
 			h.Unlock()
 
-			//tiap orang keluar balikin game stat
-			h.RLock()
 			ShowGameStatToPlayers(h)
-			h.RUnlock()
 
 		case message := <-h.Broadcast:
 
 			switch message[0] {
 
+			case '0':
+				h.RLock()
+				msg := strings.Split(string(message), ",")
+				if len(msg) != 2 {
+					return
+				}
+
+				receivedUID, err := strconv.ParseInt(msg[1], 10, 64)
+				//non authorized format, close the room
+				if err != nil {
+					return
+				}
+
+				for cl, uid := range h.Clients {
+					if receivedUID == uid {
+						continue
+					}
+					select {
+					case cl.Send <- message:
+					default:
+						close(cl.Send)
+						delete(h.Clients, cl)
+					}
+				}
+				h.RUnlock()
+
+			case '1':
+				h.RLock()
+				// optimizedMessage := []byte{message[0]}
+				index := strings.LastIndex(string(message), ",")
+				// optimizedMessage = append(optimizedMessage, message[(index+1):]...)
+				msg := strings.Split(string(message), ",")
+				if len(msg) != 3 {
+					return
+				}
+
+				receivedUID, err := strconv.ParseInt(msg[1], 10, 64)
+				//non authorized format, close the room
+				if err != nil {
+					return
+				}
+
+				for cl, uid := range h.Clients {
+					if receivedUID == uid {
+						continue
+					}
+					select {
+					case cl.Send <- message[(index + 1):]:
+					default:
+						close(cl.Send)
+						delete(h.Clients, cl)
+					}
+				}
+				h.RUnlock()
+
+			case '2':
+				h.Lock()
+				h.Words = h.Words[1:]
+				if len(h.Words) == 0 {
+
+					for client := range h.Clients {
+						select {
+						case client.Send <- []byte{'4'}:
+						default:
+							close(client.Send)
+							delete(h.Clients, client)
+						}
+					}
+
+					return
+				}
+				h.TurnNumber++
+
+				for k, v := range h.Clients {
+					if k.Order == h.TurnNumber%len(h.Clients) {
+						h.CurrentlyDrawing = v
+						break
+					}
+				}
+
+				h.Unlock()
+
+				ShowGameStatToPlayers(h)
+
 			case '3':
 
 				h.Lock()
 				msg := strings.Split(string(message), ",")
-				receivedUID, _ := strconv.ParseInt(msg[1], 10, 64)
+				//non authorized msg, close the room
+				if len(msg) != 3 {
+					return
+				}
+				receivedUID, err := strconv.ParseInt(msg[1], 10, 64)
+				//non authorized format, close the room
+				if err != nil {
+					return
+				}
 				answer := msg[2]
 
 				for cl, uid := range h.Clients {
@@ -117,14 +222,8 @@ func (h *Hub) run() {
 						break
 					}
 				}
-				for cl, _ := range h.Clients {
-					fmt.Println(*cl)
-				}
 				h.Unlock()
-
-				h.RLock()
 				ShowGameStatToPlayers(h)
-				h.RUnlock()
 
 			default:
 				h.RLock()
@@ -149,7 +248,11 @@ func (h *Hub) run() {
 }
 
 func ShowGameStatToPlayers(h *Hub) {
+	h.RLock()
+	defer h.RUnlock()
+
 	playerList := make([]PlayerStat, len(h.Clients))
+
 	for cl, uid := range h.Clients {
 		playerList[cl.Order].UID = uid
 		playerList[cl.Order].Name = cl.Name
@@ -164,6 +267,7 @@ func ShowGameStatToPlayers(h *Hub) {
 	jsonBytes, err := json.Marshal(gameStat)
 	if err != nil {
 		log.Println(err)
+		return
 	}
 
 	for cl := range h.Clients {

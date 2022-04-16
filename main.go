@@ -8,6 +8,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
+type Resp struct {
+	Success bool
+}
+
 var (
 	mutex = sync.RWMutex{}
 	hubs  = map[string]*Hub{}
@@ -25,6 +29,42 @@ func DeleteHub(hub *Hub) {
 }
 
 func CreateRoom(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	mutex.RLock()
+	_, ok := hubs[params["roomName"]]
+	mutex.RUnlock()
+
+	if ok {
+		SendResponse(w, r, false, http.StatusNotAcceptable)
+		return
+	}
+
+	SendResponse(w, r, true, http.StatusOK)
+}
+
+func JoinRoom(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	mutex.RLock()
+	defer mutex.RUnlock()
+
+	_, ok := hubs[params["roomName"]]
+	if !ok {
+		SendResponse(w, r, false, http.StatusNotAcceptable)
+		return
+	}
+
+	length := len(hubs[params["roomName"]].Clients)
+	if length >= 4 {
+		SendResponse(w, r, false, http.StatusNotAcceptable)
+		return
+	}
+
+	SendResponse(w, r, true, http.StatusOK)
+}
+
+func CreateWebsocketConnection(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
 	mutex.RLock()
@@ -54,7 +94,9 @@ func CreateRoom(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	router := mux.NewRouter()
-	router.HandleFunc("/{roomName}/{playerName}", CreateRoom).Methods("GET")
+	router.HandleFunc("/createroom/{roomName}", CreateRoom).Methods("GET")
+	router.HandleFunc("/joinroom/{roomName}", JoinRoom).Methods("GET")
+	router.HandleFunc("/ws/{roomName}/{playerName}", CreateWebsocketConnection).Methods("GET")
 
 	err := http.ListenAndServe("localhost:8080", router)
 	if err != nil {
