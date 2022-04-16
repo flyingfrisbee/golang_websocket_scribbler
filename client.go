@@ -15,12 +15,14 @@ var upgrader = websocket.Upgrader{
 }
 
 type Client struct {
-	UID   int64
-	Order int
-	Score int
-	Hub   *Hub
-	Conn  *websocket.Conn
-	Send  chan []byte
+	UID         int64
+	Name        string
+	HasAnswered bool
+	Order       int
+	Score       int
+	Hub         *Hub
+	Conn        *websocket.Conn
+	Send        chan []byte
 }
 
 func (c *Client) readPump() {
@@ -74,7 +76,7 @@ func (c *Client) writePump() {
 	}
 }
 
-func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request, playerName string) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -83,12 +85,14 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 
 	hub.Lock()
 	client := &Client{
-		UID:   time.Now().UnixMicro(),
-		Order: len(hub.Clients) + 1,
-		Score: 0,
-		Hub:   hub,
-		Conn:  conn,
-		Send:  make(chan []byte, 256),
+		UID:         time.Now().UnixMicro(),
+		Name:        playerName,
+		HasAnswered: false,
+		Order:       len(hub.Clients),
+		Score:       0,
+		Hub:         hub,
+		Conn:        conn,
+		Send:        make(chan []byte, 256),
 	}
 	client.Hub.Register <- client
 

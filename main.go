@@ -26,7 +26,12 @@ func DeleteHub(hub *Hub) {
 
 func CreateRoom(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	if _, ok := hubs[params["roomName"]]; !ok {
+
+	mutex.RLock()
+	_, ok := hubs[params["roomName"]]
+	mutex.RUnlock()
+
+	if !ok {
 		hub := newHub()
 		go hub.run()
 
@@ -34,43 +39,25 @@ func CreateRoom(w http.ResponseWriter, r *http.Request) {
 		hubs[params["roomName"]] = hub
 		mutex.Unlock()
 
-		serveWs(hub, w, r)
+		serveWs(hub, w, r, params["playerName"])
 		return
 	}
 
-	serveWs(hubs[params["roomName"]], w, r) // TODO: later switch to /join/{roomName}
+	mutex.RLock()
+	length := len(hubs[params["roomName"]].Clients)
+	mutex.RUnlock()
+
+	if length < 4 {
+		serveWs(hubs[params["roomName"]], w, r, params["playerName"])
+	}
 }
 
 func main() {
 	router := mux.NewRouter()
-	router.HandleFunc("/create/{roomName}", CreateRoom).Methods("GET")
-
-	// router.HandleFunc("join", func(w http.ResponseWriter, r *http.Request) {
-	//	do something
-	// }).Methods("GET")
+	router.HandleFunc("/{roomName}/{playerName}", CreateRoom).Methods("GET")
 
 	err := http.ListenAndServe("localhost:8080", router)
 	if err != nil {
 		log.Println(err)
 	}
 }
-
-// buat handlefunc buat konek dari android -> server
-// ada 2 handlefunc -> bisa create / bisa join
-// -create handlefunc- cek di map[string]*Hub kalo !exist -> create hub baru ke map (kasi mutex.Lock), balikin uid ke user (json), nyalain client listener,
-// type Hub struct {
-//  sync.RWMutex
-// 	clients []*Client
-// 	broadcast chan []byte
-// 	register chan *Client
-// 	unregister chan *Client
-// 	turnNumber int -> tiap ganti giliran increment++
-// 	currentlyDrawing int64(uid) -> dapet dari clients[turnNumber % len(clients)]
-// }
-
-// type Client struct {
-// 	uid int64
-// 	hub *Hub
-// 	conn *websocket.Conn
-// 	send chan []byte
-// }
