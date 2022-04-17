@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 
 	"github.com/gorilla/mux"
@@ -98,7 +100,9 @@ func main() {
 	router.HandleFunc("/joinroom/{roomName}", JoinRoom).Methods("GET")
 	router.HandleFunc("/ws/{roomName}/{playerName}", CreateWebsocketConnection).Methods("GET")
 
-	err := http.ListenAndServe("localhost:8080", router)
+	port := os.Getenv("PORT")
+
+	err := http.ListenAndServe(fmt.Sprintf(":%s", port), router)
 	if err != nil {
 		log.Println(err)
 	}
