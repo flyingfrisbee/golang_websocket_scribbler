@@ -47,7 +47,7 @@ func CreateRoom(w http.ResponseWriter, r *http.Request) {
 	mutex.RUnlock()
 
 	if ok {
-		SendResponse(w, r, false, http.StatusNotAcceptable)
+		SendResponse(w, r, false, http.StatusOK)
 		return
 	}
 
@@ -62,13 +62,13 @@ func JoinRoom(w http.ResponseWriter, r *http.Request) {
 
 	_, ok := hubs[params["roomName"]]
 	if !ok {
-		SendResponse(w, r, false, http.StatusNotAcceptable)
+		SendResponse(w, r, false, http.StatusOK)
 		return
 	}
 
 	length := len(hubs[params["roomName"]].Clients)
 	if length >= 4 {
-		SendResponse(w, r, false, http.StatusNotAcceptable)
+		SendResponse(w, r, false, http.StatusOK)
 		return
 	}
 
