@@ -26,9 +26,10 @@ type GameStat struct {
 }
 
 type PlayerStat struct {
-	UID   int
-	Name  string
-	Score int
+	UID         int
+	Name        string
+	Score       int
+	Hasanswered bool
 }
 
 func newHub() *Hub {
@@ -190,8 +191,9 @@ func (h *Hub) startChannelListener() {
 				for k, v := range h.Clients {
 					if k.Order == h.TurnNumber%len(h.Clients) {
 						h.CurrentlyDrawing = v
-						break
 					}
+
+					k.HasAnswered = false
 				}
 
 				h.Unlock()
@@ -257,6 +259,7 @@ func ShowGameStatToPlayers(h *Hub) {
 		playerList[cl.Order].UID = uid
 		playerList[cl.Order].Name = cl.Name
 		playerList[cl.Order].Score = cl.Score
+		playerList[cl.Order].Hasanswered = cl.HasAnswered
 	}
 	gameStat := GameStat{
 		CurrentlyDrawing: h.CurrentlyDrawing,
