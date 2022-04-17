@@ -29,7 +29,7 @@ type PlayerStat struct {
 	UID         int    `json:"uid"`
 	Name        string `json:"name"`
 	Score       int    `json:"score"`
-	HasAnswered bool   `json:"has_answered`
+	HasAnswered bool   `json:"has_answered"`
 }
 
 func newHub() *Hub {
