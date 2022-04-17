@@ -20,16 +20,16 @@ type Hub struct {
 }
 
 type GameStat struct {
-	CurrentlyDrawing int
-	Answer           string
-	Players          []PlayerStat
+	CurrentlyDrawing int          `json:"currently_drawing"`
+	Answer           string       `json:"answer"`
+	Players          []PlayerStat `json:"players"`
 }
 
 type PlayerStat struct {
-	UID         int
-	Name        string
-	Score       int
-	Hasanswered bool
+	UID         int    `json:"uid"`
+	Name        string `json:"name"`
+	Score       int    `json:"score"`
+	HasAnswered bool   `json:"has_answered`
 }
 
 func newHub() *Hub {
@@ -259,7 +259,7 @@ func ShowGameStatToPlayers(h *Hub) {
 		playerList[cl.Order].UID = uid
 		playerList[cl.Order].Name = cl.Name
 		playerList[cl.Order].Score = cl.Score
-		playerList[cl.Order].Hasanswered = cl.HasAnswered
+		playerList[cl.Order].HasAnswered = cl.HasAnswered
 	}
 	gameStat := GameStat{
 		CurrentlyDrawing: h.CurrentlyDrawing,
