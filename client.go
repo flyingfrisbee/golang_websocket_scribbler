@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -15,7 +14,7 @@ var upgrader = websocket.Upgrader{
 }
 
 type Client struct {
-	UID         int64
+	UID         int
 	Name        string
 	HasAnswered bool
 	Order       int
@@ -84,7 +83,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request, playerName string
 	}
 
 	client := &Client{
-		UID:         time.Now().UnixMicro(),
+		UID:         GetUID(),
 		Name:        playerName,
 		HasAnswered: false,
 		Order:       len(hub.Clients),

@@ -10,23 +10,23 @@ import (
 
 type Hub struct {
 	sync.RWMutex
-	Clients          map[*Client]int64
+	Clients          map[*Client]int
 	Broadcast        chan []byte
 	Register         chan *Client
 	Unregister       chan *Client
 	Words            []string
-	TurnNumber       int   //-> tiap ganti giliran increment++
-	CurrentlyDrawing int64 //(uid) -> dapet dari clients[turnNumber % len(clients)]
+	TurnNumber       int //-> tiap ganti giliran increment++
+	CurrentlyDrawing int //(uid) -> dapet dari clients[turnNumber % len(clients)]
 }
 
 type GameStat struct {
-	CurrentlyDrawing int64
+	CurrentlyDrawing int
 	Answer           string
 	Players          []PlayerStat
 }
 
 type PlayerStat struct {
-	UID   int64
+	UID   int
 	Name  string
 	Score int
 }
@@ -41,7 +41,7 @@ func newHub() *Hub {
 		Broadcast:  make(chan []byte),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
-		Clients:    make(map[*Client]int64),
+		Clients:    make(map[*Client]int),
 		Words:      words,
 		TurnNumber: 1,
 	}
@@ -121,7 +121,7 @@ func (h *Hub) startChannelListener() {
 					return
 				}
 
-				receivedUID, err := strconv.ParseInt(msg[1], 10, 64)
+				receivedUID, err := strconv.Atoi(msg[1])
 				//non authorized format, close the room
 				if err != nil {
 					return
@@ -150,7 +150,7 @@ func (h *Hub) startChannelListener() {
 					return
 				}
 
-				receivedUID, err := strconv.ParseInt(msg[1], 10, 64)
+				receivedUID, err := strconv.Atoi(msg[1])
 				//non authorized format, close the room
 				if err != nil {
 					return
@@ -206,7 +206,7 @@ func (h *Hub) startChannelListener() {
 				if len(msg) != 3 {
 					return
 				}
-				receivedUID, err := strconv.ParseInt(msg[1], 10, 64)
+				receivedUID, err := strconv.Atoi(msg[1])
 				//non authorized format, close the room
 				if err != nil {
 					return

@@ -17,7 +17,16 @@ type Resp struct {
 var (
 	mutex = sync.RWMutex{}
 	hubs  = map[string]*Hub{}
+	UID   = 1
 )
+
+func GetUID() int {
+	defer func() {
+		UID++
+	}()
+
+	return UID
+}
 
 func DeleteHub(hub *Hub) {
 	mutex.Lock()
