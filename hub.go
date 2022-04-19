@@ -186,7 +186,6 @@ func (h *Hub) startChannelListener() {
 
 					return
 				}
-				h.TurnNumber++
 
 				for k, v := range h.Clients {
 					if k.Order == h.TurnNumber%len(h.Clients) {
@@ -195,6 +194,8 @@ func (h *Hub) startChannelListener() {
 
 					k.HasAnswered = false
 				}
+
+				h.TurnNumber++
 
 				h.Unlock()
 
