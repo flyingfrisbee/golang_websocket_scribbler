@@ -80,7 +80,7 @@ func (h *Hub) startChannelListener() {
 			}
 			h.Unlock()
 
-			ShowGameStatToPlayers(h, false)
+			ShowGameStatToPlayers(h)
 
 		case client := <-h.Unregister:
 
@@ -109,7 +109,7 @@ func (h *Hub) startChannelListener() {
 			}
 			h.Unlock()
 
-			ShowGameStatToPlayers(h, false)
+			ShowGameStatToPlayers(h)
 
 		case message := <-h.Broadcast:
 
@@ -199,7 +199,7 @@ func (h *Hub) startChannelListener() {
 
 				h.Unlock()
 
-				ShowGameStatToPlayers(h, true)
+				ShowGameStatToPlayers(h)
 
 			case '3':
 
@@ -226,7 +226,7 @@ func (h *Hub) startChannelListener() {
 					}
 				}
 				h.Unlock()
-				ShowGameStatToPlayers(h, false)
+				ShowGameStatToPlayers(h)
 
 			default:
 				h.RLock()
@@ -244,7 +244,7 @@ func (h *Hub) startChannelListener() {
 	}
 }
 
-func ShowGameStatToPlayers(h *Hub, wipeCanvas bool) {
+func ShowGameStatToPlayers(h *Hub) {
 	h.RLock()
 	defer h.RUnlock()
 
@@ -274,18 +274,6 @@ func ShowGameStatToPlayers(h *Hub, wipeCanvas bool) {
 		default:
 			close(cl.Send)
 			delete(h.Clients, cl)
-		}
-	}
-
-	//clear canvas
-	if wipeCanvas {
-		for cl := range h.Clients {
-			select {
-			case cl.Send <- []byte{'0'}:
-			default:
-				close(cl.Send)
-				delete(h.Clients, cl)
-			}
 		}
 	}
 }
