@@ -80,7 +80,7 @@ func (h *Hub) startChannelListener() {
 			}
 			h.Unlock()
 
-			ShowGameStatToPlayers(h)
+			ShowGameStatToPlayers(h, false)
 
 		case client := <-h.Unregister:
 
@@ -109,7 +109,7 @@ func (h *Hub) startChannelListener() {
 			}
 			h.Unlock()
 
-			ShowGameStatToPlayers(h)
+			ShowGameStatToPlayers(h, false)
 
 		case message := <-h.Broadcast:
 
@@ -188,14 +188,6 @@ func (h *Hub) startChannelListener() {
 				}
 
 				for k, v := range h.Clients {
-					//clear canvas
-					select {
-					case k.Send <- []byte{'0'}:
-					default:
-						close(k.Send)
-						delete(h.Clients, k)
-					}
-
 					if k.Order == h.TurnNumber%len(h.Clients) {
 						h.CurrentlyDrawing = v
 					}
@@ -207,7 +199,7 @@ func (h *Hub) startChannelListener() {
 
 				h.Unlock()
 
-				ShowGameStatToPlayers(h)
+				ShowGameStatToPlayers(h, true)
 
 			case '3':
 
@@ -234,7 +226,7 @@ func (h *Hub) startChannelListener() {
 					}
 				}
 				h.Unlock()
-				ShowGameStatToPlayers(h)
+				ShowGameStatToPlayers(h, false)
 
 			default:
 				h.RLock()
@@ -252,7 +244,7 @@ func (h *Hub) startChannelListener() {
 	}
 }
 
-func ShowGameStatToPlayers(h *Hub) {
+func ShowGameStatToPlayers(h *Hub, wipeCanvas bool) {
 	h.RLock()
 	defer h.RUnlock()
 
@@ -282,6 +274,18 @@ func ShowGameStatToPlayers(h *Hub) {
 		default:
 			close(cl.Send)
 			delete(h.Clients, cl)
+		}
+	}
+
+	//clear canvas
+	if wipeCanvas {
+		for cl := range h.Clients {
+			select {
+			case cl.Send <- []byte{'0'}:
+			default:
+				close(cl.Send)
+				delete(h.Clients, cl)
+			}
 		}
 	}
 }
