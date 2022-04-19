@@ -117,7 +117,7 @@ func (h *Hub) startChannelListener() {
 
 			case '0':
 				h.RLock()
-				msg := strings.Split(string(message), ",")
+				msg := strings.Split(string(message), ";")
 				if len(msg) != 2 {
 					return
 				}
@@ -144,9 +144,9 @@ func (h *Hub) startChannelListener() {
 			case '1':
 				h.RLock()
 				// optimizedMessage := []byte{message[0]}
-				index := strings.LastIndex(string(message), ",")
+				index := strings.LastIndex(string(message), ";")
 				// optimizedMessage = append(optimizedMessage, message[(index+1):]...)
-				msg := strings.Split(string(message), ",")
+				msg := strings.Split(string(message), ";")
 				if len(msg) != 3 {
 					return
 				}
@@ -204,7 +204,7 @@ func (h *Hub) startChannelListener() {
 			case '3':
 
 				h.Lock()
-				msg := strings.Split(string(message), ",")
+				msg := strings.Split(string(message), ";")
 				//non authorized msg, close the room
 				if len(msg) != 3 {
 					return
@@ -240,12 +240,6 @@ func (h *Hub) startChannelListener() {
 				}
 				h.RUnlock()
 			}
-
-			// next turn
-			// h.Words = h.Words[1:]
-			// if len(h.Words) == 0 {
-			// 	//notify client game has ended
-			// }
 		}
 	}
 }

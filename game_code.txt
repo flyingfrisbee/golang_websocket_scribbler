@@ -1,12 +1,12 @@
 this is what each code sent from client -> server does:
 
-- 0: Clear drawing from canvas (handled from client) -> send to all players except currently drawing (format: "0,UID")
+- 0: Clear drawing from canvas (handled from client) -> send to all players except currently drawing (format: "0;UID")
 *client check = msg[0] == '0'
-- 1: drawing coordinates from client (handled from client) -> send to all players except currently drawing (format: "1,UID,[{ object bros }]")
+- 1: drawing coordinates from client (handled from client) -> send to all players except currently drawing (format: "1;UID;[{ object bros }]")
 *client check = msg[0] == '[' (awal dari list movement)
 - 2: Continue turn => Words = Words[1:], cek juga buat end game klo gaada kata lagi.
     turn number++. currentlydrawing = for loop cari UID dengan Order = turnNumber % len(Clients). updategamestat
-- 3: Submit answer (format: "3,UID,answer")
+- 3: Submit answer (format: "3;UID;answer")
 - 4: Game has ended (triggered from continue turn but no words left -> send '4' to client)
 *client check = msg[0] == '4' -> exit activity
 *client check = msg[0] == '{' -> game status buat refresh recycler view, change button text & enable/disable
