@@ -188,6 +188,14 @@ func (h *Hub) startChannelListener() {
 				}
 
 				for k, v := range h.Clients {
+					//clear canvas
+					select {
+					case k.Send <- []byte{'0'}:
+					default:
+						close(k.Send)
+						delete(h.Clients, k)
+					}
+
 					if k.Order == h.TurnNumber%len(h.Clients) {
 						h.CurrentlyDrawing = v
 					}
