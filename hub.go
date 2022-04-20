@@ -190,21 +190,24 @@ func (h *Hub) startChannelListener() {
 							delete(h.Clients, client)
 						}
 					}
-				}
+				} else {
+					for k, v := range h.Clients {
+						if k.Order == h.TurnNumber%len(h.Clients) {
+							h.CurrentlyDrawing = v
+						}
 
-				for k, v := range h.Clients {
-					if k.Order == h.TurnNumber%len(h.Clients) {
-						h.CurrentlyDrawing = v
+						k.HasAnswered = false
 					}
 
-					k.HasAnswered = false
+					h.TurnNumber++
 				}
 
-				h.TurnNumber++
-
 				h.Unlock()
-
-				ShowGameStatToPlayers(h)
+				if len(h.Words) == 0 {
+					ShowEndGameStatToPlayers(h)
+				} else {
+					ShowGameStatToPlayers(h)
+				}
 
 			case '3':
 
@@ -264,6 +267,40 @@ func ShowGameStatToPlayers(h *Hub) {
 	gameStat := GameStat{
 		CurrentlyDrawing: h.CurrentlyDrawing,
 		Answer:           h.Words[0],
+		Players:          playerList,
+	}
+
+	jsonBytes, err := json.Marshal(gameStat)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	for cl := range h.Clients {
+		select {
+		case cl.Send <- jsonBytes:
+		default:
+			close(cl.Send)
+			delete(h.Clients, cl)
+		}
+	}
+}
+
+func ShowEndGameStatToPlayers(h *Hub) {
+	h.RLock()
+	defer h.RUnlock()
+
+	playerList := make([]PlayerStat, len(h.Clients))
+
+	for cl, uid := range h.Clients {
+		playerList[cl.Order].UID = uid
+		playerList[cl.Order].Name = cl.Name
+		playerList[cl.Order].Score = cl.Score
+		playerList[cl.Order].HasAnswered = cl.HasAnswered
+	}
+	gameStat := GameStat{
+		CurrentlyDrawing: h.CurrentlyDrawing,
+		Answer:           "Finished!",
 		Players:          playerList,
 	}
 
