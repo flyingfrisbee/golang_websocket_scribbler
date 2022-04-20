@@ -172,6 +172,14 @@ func (h *Hub) startChannelListener() {
 
 			case '2':
 				h.Lock()
+
+				for cl, uid := range h.Clients {
+					if uid == h.CurrentlyDrawing {
+						cl.Score += 2
+						break
+					}
+				}
+
 				h.Words = h.Words[1:]
 				if len(h.Words) == 0 {
 
