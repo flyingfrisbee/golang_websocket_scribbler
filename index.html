@@ -29,7 +29,7 @@ window.onload = function () {
     };
 
     if (window["WebSocket"]) {
-        conn = new WebSocket("wss://ws-scribbler.herokuapp.com/ws/scribblertest/genji");
+        conn = new WebSocket("wss://ws-scribbler.herokuapp.com/ws/a/genji");
         conn.onclose = function (evt) {
             var item = document.createElement("div");
             item.innerHTML = "<b>Connection closed.</b>";

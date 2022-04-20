@@ -182,7 +182,6 @@ func (h *Hub) startChannelListener() {
 
 				h.Words = h.Words[1:]
 				if len(h.Words) == 0 {
-
 					for client := range h.Clients {
 						select {
 						case client.Send <- []byte{'4'}:
@@ -191,19 +190,17 @@ func (h *Hub) startChannelListener() {
 							delete(h.Clients, client)
 						}
 					}
+				} else {
+					for k, v := range h.Clients {
+						if k.Order == h.TurnNumber%len(h.Clients) {
+							h.CurrentlyDrawing = v
+						}
 
-					return
-				}
-
-				for k, v := range h.Clients {
-					if k.Order == h.TurnNumber%len(h.Clients) {
-						h.CurrentlyDrawing = v
+						k.HasAnswered = false
 					}
 
-					k.HasAnswered = false
+					h.TurnNumber++
 				}
-
-				h.TurnNumber++
 
 				h.Unlock()
 
