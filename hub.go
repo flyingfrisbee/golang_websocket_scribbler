@@ -190,17 +190,17 @@ func (h *Hub) startChannelListener() {
 							delete(h.Clients, client)
 						}
 					}
-				} else {
-					for k, v := range h.Clients {
-						if k.Order == h.TurnNumber%len(h.Clients) {
-							h.CurrentlyDrawing = v
-						}
+				}
 
-						k.HasAnswered = false
+				for k, v := range h.Clients {
+					if k.Order == h.TurnNumber%len(h.Clients) {
+						h.CurrentlyDrawing = v
 					}
 
-					h.TurnNumber++
+					k.HasAnswered = false
 				}
+
+				h.TurnNumber++
 
 				h.Unlock()
 
