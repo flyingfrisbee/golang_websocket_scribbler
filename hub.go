@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -143,13 +144,13 @@ func (h *Hub) startChannelListener() {
 
 			case '1':
 				h.RLock()
-				// optimizedMessage := []byte{message[0]}
-				index := strings.LastIndex(string(message), ";")
-				// optimizedMessage = append(optimizedMessage, message[(index+1):]...)
 				msg := strings.Split(string(message), ";")
-				if len(msg) != 3 {
+				if len(msg) != 5 {
 					return
 				}
+				width := msg[2][2:]
+				height := msg[3][2:]
+				movementList := msg[4]
 
 				receivedUID, err := strconv.Atoi(msg[1])
 				//non authorized format, close the room
@@ -162,7 +163,7 @@ func (h *Hub) startChannelListener() {
 						continue
 					}
 					select {
-					case cl.Send <- message[(index + 1):]:
+					case cl.Send <- []byte(fmt.Sprintf("[%s;%s;%s", width, height, movementList)):
 					default:
 						close(cl.Send)
 						delete(h.Clients, cl)
