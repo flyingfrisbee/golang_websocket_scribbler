@@ -1,5 +1,6 @@
 module GithubRepository/golang_websocket_scribbler
 
+// +heroku goVersion go1.17
 go 1.17
 
 require (
