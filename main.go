@@ -94,7 +94,7 @@ func CreateWebsocketConnection(w http.ResponseWriter, r *http.Request) {
 	mutex.RUnlock()
 
 	if !ok {
-		hub := newHub()
+		hub := newHub(params["roomName"])
 		go hub.run()
 
 		mutex.Lock()
@@ -115,6 +115,10 @@ func CreateWebsocketConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	defer func() {
+		CloseConnectionMongoDB()
+	}()
+	CreateConnectionToMongoDB()
 	router := mux.NewRouter()
 	router.HandleFunc("/version", GetAppVersion).Methods("GET")
 	router.HandleFunc("/createroom/{roomName}", CreateRoom).Methods("GET")

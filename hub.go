@@ -11,10 +11,11 @@ import (
 
 type Hub struct {
 	sync.RWMutex
-	Clients          map[*Client]int
+	RoomName         string
 	Broadcast        chan []byte
 	Register         chan *Client
 	Unregister       chan *Client
+	Clients          map[*Client]int
 	Words            []string
 	TurnNumber       int //-> tiap ganti giliran increment++
 	CurrentlyDrawing int //(uid) -> dapet dari clients[turnNumber % len(clients)]
@@ -33,13 +34,14 @@ type PlayerStat struct {
 	HasAnswered bool   `json:"has_answered"`
 }
 
-func newHub() *Hub {
+func newHub(roomName string) *Hub {
 	words := []string{}
 	for k := range ListOfItems {
 		words = append(words, k)
 	}
 
 	return &Hub{
+		RoomName:   roomName,
 		Broadcast:  make(chan []byte),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
@@ -51,12 +53,16 @@ func newHub() *Hub {
 
 func (h *Hub) run() {
 	defer func() {
+		h.Lock()
 		if len(h.Clients) != 0 {
 			for cl := range h.Clients {
 				delete(h.Clients, cl)
 				close(cl.Send)
 			}
 		}
+		// TODO: clear movement cache mongodb
+		DeleteMovementCollection(h.RoomName)
+		h.Unlock()
 
 		close(h.Broadcast)
 		close(h.Register)
@@ -78,6 +84,13 @@ func (h *Hub) startChannelListener() {
 			h.Clients[client] = client.UID
 			if len(h.Clients) == 1 {
 				h.CurrentlyDrawing = client.UID
+			}
+
+			// TODO: check if entry exists in mongodb, if exist: fetch cache movement from mongodb, send through the client channel cl.Send <- data
+			if CheckIfMovementCacheExist(h.RoomName) {
+				for _, v := range GetMovement(h.RoomName) {
+					client.Send <- []byte(v.Text)
+				}
 			}
 			h.Unlock()
 
@@ -117,7 +130,6 @@ func (h *Hub) startChannelListener() {
 			switch message[0] {
 
 			case '0':
-				h.RLock()
 				msg := strings.Split(string(message), ";")
 				if len(msg) != 2 {
 					return
@@ -129,6 +141,12 @@ func (h *Hub) startChannelListener() {
 					return
 				}
 
+				// TODO: clear mongodb entries for movement cache
+				h.Lock()
+				DeleteMovementCollection(h.RoomName)
+				h.Unlock()
+
+				h.RLock()
 				for cl, uid := range h.Clients {
 					if receivedUID == uid {
 						continue
@@ -143,7 +161,7 @@ func (h *Hub) startChannelListener() {
 				h.RUnlock()
 
 			case '1':
-				h.RLock()
+
 				msg := strings.Split(string(message), ";")
 				if len(msg) != 5 {
 					return
@@ -158,6 +176,12 @@ func (h *Hub) startChannelListener() {
 					return
 				}
 
+				// TODO: write movement to mongodb
+				h.Lock()
+				CreateNewMovementEntry(h.RoomName, string(message))
+				h.Unlock()
+
+				h.RLock()
 				for cl, uid := range h.Clients {
 					if receivedUID == uid {
 						continue
