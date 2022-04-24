@@ -22,18 +22,22 @@ var (
 	MongoClient *mongo.Client
 )
 
-func CreateContext() context.Context {
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	return ctx
+func CreateContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	return ctx, cancel
 }
 
 func CreateConnectionToMongoDB() {
-	MongoClient, _ = mongo.Connect(CreateContext(), options.Client().ApplyURI(URI))
+	ctx, cancel := CreateContext()
+	defer cancel()
+	MongoClient, _ = mongo.Connect(ctx, options.Client().ApplyURI(URI))
 }
 
 func CreateNewMovementEntry(roomName, text string) {
 	collection := MongoClient.Database("movement").Collection(roomName)
-	res, _ := collection.InsertOne(CreateContext(), &MovementCache{
+	ctx, cancel := CreateContext()
+	defer cancel()
+	res, _ := collection.InsertOne(ctx, &MovementCache{
 		Text: text,
 	})
 
@@ -42,8 +46,10 @@ func CreateNewMovementEntry(roomName, text string) {
 
 func DeleteMovementCollection(roomName string) {
 	collection := MongoClient.Database("movement").Collection(roomName)
+	ctx, cancel := CreateContext()
+	defer cancel()
 	res, _ := collection.DeleteMany(
-		CreateContext(),
+		ctx,
 		bson.M{},
 	)
 	fmt.Printf("Deleted %v documents\n", res.DeletedCount)
@@ -51,23 +57,29 @@ func DeleteMovementCollection(roomName string) {
 
 func CheckIfMovementCacheExist(roomName string) bool {
 	collection := MongoClient.Database("movement").Collection(roomName)
-	count, _ := collection.CountDocuments(CreateContext(), bson.M{})
+	ctx, cancel := CreateContext()
+	defer cancel()
+	count, _ := collection.CountDocuments(ctx, bson.M{})
 	return count > 0
 }
 
 func GetMovement(roomName string) []MovementCache {
 	collection := MongoClient.Database("movement").Collection(roomName)
-	filterCursor, _ := collection.Find(CreateContext(), bson.M{})
-	defer filterCursor.Close(CreateContext())
+	ctx, cancel := CreateContext()
+	defer cancel()
+	filterCursor, _ := collection.Find(ctx, bson.M{})
+	defer filterCursor.Close(ctx)
 
 	var movements []MovementCache
-	filterCursor.All(CreateContext(), &movements)
+	filterCursor.All(ctx, &movements)
 
 	return movements
 }
 
 func CloseConnectionMongoDB() {
+	ctx, cancel := CreateContext()
+	defer cancel()
 	if MongoClient != nil {
-		MongoClient.Disconnect(CreateContext())
+		MongoClient.Disconnect(ctx)
 	}
 }
