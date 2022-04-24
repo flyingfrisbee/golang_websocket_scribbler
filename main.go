@@ -10,14 +10,21 @@ import (
 	"github.com/gorilla/mux"
 )
 
+type AppVersion struct {
+	MandatoryVersion int `json:"mandatory_version"`
+	OptionalVersion  int `json:"optional_version"`
+}
+
 type Resp struct {
-	Success bool
+	Success bool `json:"success"`
 }
 
 var (
-	mutex = sync.RWMutex{}
-	hubs  = map[string]*Hub{}
-	UID   = 1
+	AppVersionMandatory = 2
+	AppVersionOptional  = 1
+	mutex               = sync.RWMutex{}
+	hubs                = map[string]*Hub{}
+	UID                 = 1
 )
 
 func GetUID() int {
@@ -37,6 +44,10 @@ func DeleteHub(hub *Hub) {
 			return
 		}
 	}
+}
+
+func GetAppVersion(w http.ResponseWriter, r *http.Request) {
+	SendAppVersionResponse(w, r, http.StatusOK)
 }
 
 func CreateRoom(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +94,7 @@ func CreateWebsocketConnection(w http.ResponseWriter, r *http.Request) {
 	mutex.RUnlock()
 
 	if !ok {
-		hub := newHub()
+		hub := newHub(params["roomName"])
 		go hub.run()
 
 		mutex.Lock()
@@ -104,7 +115,12 @@ func CreateWebsocketConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	defer func() {
+		CloseConnectionMongoDB()
+	}()
+	CreateConnectionToMongoDB()
 	router := mux.NewRouter()
+	router.HandleFunc("/version", GetAppVersion).Methods("GET")
 	router.HandleFunc("/createroom/{roomName}", CreateRoom).Methods("GET")
 	router.HandleFunc("/joinroom/{roomName}", JoinRoom).Methods("GET")
 	router.HandleFunc("/ws/{roomName}/{playerName}", CreateWebsocketConnection).Methods("GET")
