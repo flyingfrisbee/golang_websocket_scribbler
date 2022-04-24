@@ -89,7 +89,11 @@ func (h *Hub) startChannelListener() {
 			// TODO: check if entry exists in mongodb, if exist: fetch cache movement from mongodb, send through the client channel cl.Send <- data
 			if CheckIfMovementCacheExist(h.RoomName) {
 				for _, v := range GetMovement(h.RoomName) {
-					client.Send <- []byte(v.Text)
+					ok, _, width, height, movementList := ParseMovementData(v.Text)
+					if !ok {
+						return
+					}
+					client.Send <- []byte(fmt.Sprintf("[%s;%s;%s", width, height, movementList))
 				}
 			}
 			h.Unlock()
@@ -162,17 +166,8 @@ func (h *Hub) startChannelListener() {
 
 			case '1':
 
-				msg := strings.Split(string(message), ";")
-				if len(msg) != 5 {
-					return
-				}
-				width := msg[2][2:]
-				height := msg[3][2:]
-				movementList := msg[4]
-
-				receivedUID, err := strconv.Atoi(msg[1])
-				//non authorized format, close the room
-				if err != nil {
+				ok, receivedUID, width, height, movementList := ParseMovementData(string(message))
+				if !ok {
 					return
 				}
 
@@ -343,4 +338,21 @@ func ShowEndGameStatToPlayers(h *Hub) {
 			delete(h.Clients, cl)
 		}
 	}
+}
+
+func ParseMovementData(message string) (bool, int, string, string, string) {
+	msg := strings.Split(string(message), ";")
+	if len(msg) != 5 {
+		return false, 0, "", "", ""
+	}
+	width := msg[2][2:]
+	height := msg[3][2:]
+	movementList := msg[4]
+
+	receivedUID, err := strconv.Atoi(msg[1])
+	if err != nil {
+		return false, 0, "", "", ""
+	}
+
+	return true, receivedUID, width, height, movementList
 }
