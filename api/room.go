@@ -3,42 +3,40 @@ package api
 import (
 	"GithubRepository/golang_websocket_scribbler/game"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
-type createRoomRequest struct {
-	UserID   int    `json:"user_id"`
-	Username string `json:"username"`
-}
+var (
+	roomID string
+)
 
 func createRoom(c *gin.Context) {
-	// create room in hub
-	// create room
-	// create client
+	_, err := strconv.Atoi(c.Request.URL.Query().Get("userId"))
+	if err != nil {
+		writeResponse(c, nil, "cannot convert userId to integer", http.StatusBadRequest)
+		return
+	}
 
-	// a, _ := c.Writer.(http.ResponseWriter)
-	// game.ServeWs(hub, a, c.Request)
+	room := game.HubObj.AddRoomToHub()
+	go room.Run()
+	a, _ := c.Writer.(http.ResponseWriter)
+	game.ServeWs(room, a, c.Request)
+
+	// TODO: Delete this later, for testing purpose only
+	roomID = room.ID
 }
 
 func joinRoom(c *gin.Context) {
-	// roomID := c.Param("room_id")
-
+	// roomID := c.Param("roomId")
+	room := game.HubObj.FindRoomByID(roomID)
+	a, _ := c.Writer.(http.ResponseWriter)
+	game.ServeWs(room, a, c.Request)
 }
 
 func defineRoomRoute(r *gin.Engine) {
-	hub := game.CreateRoom()
-	go hub.Run()
-
 	roomRoute := r.Group("/rooms")
-	// roomRoute.POST("/create", createRoom)
-	// roomRoute.GET("/join/:room_id", joinRoom)
-
-	roomRoute.GET("/", gin.WrapF(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "index.html")
-	}))
-	roomRoute.GET("/ws", func(c *gin.Context) {
-		a, _ := c.Writer.(http.ResponseWriter)
-		game.ServeWs(hub, a, c.Request)
-	})
+	roomRoute.GET("/create", createRoom)
+	roomRoute.GET("/join/:roomId", joinRoom)
 }

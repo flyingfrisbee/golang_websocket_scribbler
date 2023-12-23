@@ -9,6 +9,8 @@ type Room struct {
 	Register chan *Player
 	// Unregister requests from players.
 	Unregister chan *Player
+	// Unique id for the room
+	ID string
 	// Index of currently drawing player from turnOrder
 	CurrentTurnIdx int
 	// Player ids based on the order of who entered the room
@@ -32,6 +34,9 @@ func (r *Room) Run() {
 				select {
 				case player.MsgToPlayer <- message:
 				default:
+					// Might happen when for some reason the client cannot
+					// process the message, since MsgToPlayer is buffered
+					// channel that means something wrong occured on player
 					close(player.MsgToPlayer)
 					delete(r.Players, player.ID)
 				}
@@ -40,12 +45,13 @@ func (r *Room) Run() {
 	}
 }
 
-func CreateRoom() *Room {
+func CreateRoom(roomID string) *Room {
 	return &Room{
 		Players:        make(map[int]*Player),
 		MsgFromPlayer:  make(chan []byte),
 		Register:       make(chan *Player),
 		Unregister:     make(chan *Player),
+		ID:             roomID,
 		CurrentTurnIdx: 0,
 		TurnOrder:      []int{},
 		Words:          generateWordsInRandomOrder(),

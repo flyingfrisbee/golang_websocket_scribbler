@@ -24,7 +24,7 @@ func (h *hub) AddRoomToHub() *Room {
 		}
 	}
 
-	room := CreateRoom()
+	room := CreateRoom(id)
 	h.roomColl[id] = room
 	return room
 }

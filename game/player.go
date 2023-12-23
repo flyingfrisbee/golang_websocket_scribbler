@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -119,6 +120,12 @@ func (p *Player) writePump() {
 
 // serveWs handles websocket requests from the peer.
 func ServeWs(room *Room, w http.ResponseWriter, r *http.Request) {
+	queryParams := r.URL.Query()
+	userID, _ := strconv.Atoi(queryParams.Get("userId"))
+	username := queryParams.Get("username")
+
+	// Enable cors
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -128,6 +135,8 @@ func ServeWs(room *Room, w http.ResponseWriter, r *http.Request) {
 		Room:        room,
 		Conn:        conn,
 		MsgToPlayer: make(chan []byte, 256),
+		ID:          userID,
+		Username:    username,
 	}
 	player.Room.Register <- player
 
