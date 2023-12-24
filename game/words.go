@@ -82,3 +82,16 @@ var (
 		"Scissor":          {},
 	}
 )
+
+func generateWordsInRandomOrder() []string {
+	l := len(ListOfItems)
+	res := make([]string, l)
+
+	i := 0
+	for key := range ListOfItems {
+		res[i] = key
+		i++
+	}
+
+	return res
+}

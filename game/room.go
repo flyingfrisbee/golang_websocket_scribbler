@@ -2,7 +2,16 @@ package game
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
+	"strings"
+)
+
+type NextTurnTrigger int
+
+const (
+	CurrentTurnPlayerLeft NextTurnTrigger = iota
+	AllPlayersHaveSubmittedAnswer
 )
 
 type Room struct {
@@ -24,6 +33,8 @@ type Room struct {
 	Words []string
 	// Drawing cache
 	Cache []drawingCoordinate
+	// Number of people that has submitted their answer
+	AnswersCount int
 }
 
 func (r *Room) Run() {
@@ -37,19 +48,68 @@ func (r *Room) Run() {
 	for {
 		select {
 		case player := <-r.Register:
-			if len(r.Players) >= 4 {
+			roomIsFullyPopulated := len(r.Players) >= 4
+			if roomIsFullyPopulated {
 				player.AckChan <- false
 				break
 			}
+
 			r.Players[player.ID] = player
 			r.TurnOrder = append(r.TurnOrder, player.ID)
 			player.AckChan <- true
+			// GameInfo
+			msg := r.generateGameInfo()
+			_, err := r.sendMessageToPlayers(&msg)
+			if err != nil {
+				log.Println(err)
+				break
+			}
+			// Sync drawing
+			if len(r.Cache) == 0 {
+				break
+			}
+			msg.Code = Drawing
+			msg.Data = r.Cache
+			jsonBytes, err := json.Marshal(&msg)
+			if err != nil {
+				log.Println(err)
+				break
+			}
+			player.MsgToPlayer <- jsonBytes
 		case player := <-r.Unregister:
-			if _, ok := r.Players[player.ID]; ok {
-				shouldCloseRoom := r.unregisterPlayer(player)
-				if shouldCloseRoom {
-					return
-				}
+			_, ok := r.Players[player.ID]
+			if !ok {
+				break
+			}
+
+			proceedNextTurn := r.TurnOrder[r.CurrentTurnIdx] == player.ID
+			shouldCloseRoom := r.unregisterPlayer(player)
+			if shouldCloseRoom {
+				return
+			}
+
+			if !proceedNextTurn {
+				break
+			}
+
+			r.nextTurn(CurrentTurnPlayerLeft)
+			msg := r.generateGameInfo()
+			_, err := r.sendMessageToPlayers(&msg)
+			if err != nil {
+				log.Println(err)
+				break
+			}
+
+			gameFinished := len(r.Words) == 0
+			if !gameFinished {
+				break
+			}
+
+			msg = r.findWinner()
+			_, err = r.sendMessageToPlayers(&msg)
+			if err != nil {
+				log.Println(err)
+				break
 			}
 		case message := <-r.MsgFromPlayer:
 			var msg userMessage
@@ -59,29 +119,42 @@ func (r *Room) Run() {
 				break
 			}
 
-			switch msg.Code {
-			case Drawing:
-				coords, ok := msg.Data.([]drawingCoordinate)
-				if !ok {
-					log.Println(err)
-					continue
-				}
-
-				r.Cache = append(r.Cache, coords...)
+			err = r.handleIncomingMessage(&msg)
+			if err != nil {
+				log.Println(err)
+				break
 			}
 
-			for _, player := range r.Players {
-				select {
-				case player.MsgToPlayer <- message:
-				default:
-					// Might happen when for some reason the client cannot
-					// process the message, since MsgToPlayer is buffered
-					// channel that means something wrong occured on player
-					shouldCloseRoom := r.unregisterPlayer(player)
-					if shouldCloseRoom {
-						return
-					}
-				}
+			_, err = r.sendMessageToPlayers(&msg)
+			if err != nil {
+				log.Println(err)
+				break
+			}
+
+			// Player that is drawing cannot give answer, hence - 1
+			proceedNextTurn := r.AnswersCount == (len(r.Players) - 1)
+			if !proceedNextTurn {
+				break
+			}
+
+			r.nextTurn(AllPlayersHaveSubmittedAnswer)
+			msg = r.generateGameInfo()
+			_, err = r.sendMessageToPlayers(&msg)
+			if err != nil {
+				log.Println(err)
+				break
+			}
+
+			gameFinished := len(r.Words) == 0
+			if !gameFinished {
+				break
+			}
+
+			msg = r.findWinner()
+			_, err = r.sendMessageToPlayers(&msg)
+			if err != nil {
+				log.Println(err)
+				break
 			}
 		}
 	}
@@ -99,11 +172,6 @@ func (r *Room) unregisterPlayer(p *Player) bool {
 		i++
 	}
 
-	removedPlayerIsDrawing := p.ID == r.TurnOrder[r.CurrentTurnIdx]
-	if removedPlayerIsDrawing {
-		r.Words = r.Words[1:]
-	}
-
 	r.TurnOrder = append(r.TurnOrder[:i], r.TurnOrder[i+1:]...)
 	if r.CurrentTurnIdx > len(r.TurnOrder)-1 {
 		r.CurrentTurnIdx = 0
@@ -112,16 +180,117 @@ func (r *Room) unregisterPlayer(p *Player) bool {
 	return len(r.Players) == 0
 }
 
-func (r *Room) generateGameInfo() gameInfo {
+func (r *Room) nextTurn(cause NextTurnTrigger) {
+	r.Cache = nil
+	r.Words = r.Words[1:]
+	r.AnswersCount = 0
+
+	for _, p := range r.Players {
+		p.HasAnswered = false
+	}
+
+	switch cause {
+	case AllPlayersHaveSubmittedAnswer:
+		r.CurrentTurnIdx++
+		if r.CurrentTurnIdx > len(r.TurnOrder)-1 {
+			r.CurrentTurnIdx = 0
+		}
+	}
+}
+
+func (r *Room) sendMessageToPlayers(msg *userMessage) (bool, error) {
+	jsonBytes, err := json.Marshal(&msg)
+	if err != nil {
+		return false, err
+	}
+
+	for _, player := range r.Players {
+		select {
+		case player.MsgToPlayer <- jsonBytes:
+		default:
+			// Might happen when for some reason the client cannot
+			// process the message, since MsgToPlayer is buffered
+			// channel that means something wrong occured on player
+			shouldCloseRoom := r.unregisterPlayer(player)
+			if shouldCloseRoom {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+// Update game data based on the action code and modify message accordingly
+func (r *Room) handleIncomingMessage(msg *userMessage) error {
+	switch msg.Code {
+	case Drawing:
+		coords, ok := msg.Data.([]drawingCoordinate)
+		if !ok {
+			return fmt.Errorf("failed when converting message from player: drawing")
+		}
+
+		r.Cache = append(r.Cache, coords...)
+	case ClearDrawing:
+		r.Cache = nil
+	case Answer:
+		ans, ok := msg.Data.(string)
+		if !ok {
+			return fmt.Errorf("failed when converting message from player: answer")
+		}
+
+		player := r.Players[msg.SenderID]
+
+		if len(r.Cache) != 0 || r.AnswersCount != 0 {
+			// i'm thinking about a case where a player left and then new turn
+			// has begun, but this person already answered the previous turn's drawing
+			playerGuessedCorrectly := strings.EqualFold(ans, r.Words[0])
+			if playerGuessedCorrectly {
+				player.Score++
+			}
+			player.HasAnswered = true
+			r.AnswersCount++
+		}
+
+		msg.Data = player.mapToPlayerInfo()
+	}
+
+	return nil
+}
+
+func (r *Room) generateGameInfo() userMessage {
 	playersInfo := make([]playerInfo, len(r.TurnOrder))
 	for idx, id := range r.TurnOrder {
 		playersInfo[idx] = r.Players[id].mapToPlayerInfo()
 	}
-	return gameInfo{
+	gameInfo := gameInfo{
 		RoomID:         r.ID,
 		Players:        playersInfo,
 		CurrentTurnIdx: r.CurrentTurnIdx,
 		Word:           r.Words[0],
+	}
+
+	msg := userMessage{
+		Code: UpdateGameInfo,
+		Data: gameInfo,
+	}
+
+	return msg
+}
+
+func (r *Room) findWinner() userMessage {
+	var winner *Player
+	max := 0
+	for _, p := range r.Players {
+		if max < p.Score {
+			max = p.Score
+			winner = p
+		}
+	}
+
+	return userMessage{
+		Code: GameFinished,
+		Data: winner.mapToPlayerInfo(),
 	}
 }
 
@@ -136,17 +305,4 @@ func CreateRoom(roomID string) *Room {
 		TurnOrder:      []int{},
 		Words:          generateWordsInRandomOrder(),
 	}
-}
-
-func generateWordsInRandomOrder() []string {
-	l := len(ListOfItems)
-	res := make([]string, l)
-
-	i := 0
-	for key := range ListOfItems {
-		res[i] = key
-		i++
-	}
-
-	return res
 }

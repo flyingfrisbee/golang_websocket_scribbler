@@ -7,7 +7,6 @@ const (
 	Drawing                          // receivedData: []drawing, sendData: []drawing
 	ClearDrawing                     // receivedData: nil, sendData: nil
 	Answer                           // receivedData: string, sendData: player
-	SyncDrawing                      // sendData: []drawing from cache
 	GameFinished                     // sendData: player that wins
 )
 
@@ -36,10 +35,6 @@ type playerInfo struct {
 	ScreenWidth  int    `json:"screen_width"`
 	ScreenHeight int    `json:"screen_height"`
 	HasAnswered  bool   `json:"has_answered"`
-}
-
-func generateGameInfo() {
-
 }
 
 // USER CAN DRAW
