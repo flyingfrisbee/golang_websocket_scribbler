@@ -29,6 +29,12 @@ func createRoom(c *gin.Context) {
 }
 
 func joinRoom(c *gin.Context) {
+	_, err := strconv.Atoi(c.Request.URL.Query().Get("userId"))
+	if err != nil {
+		writeResponse(c, nil, "cannot convert userId to integer", http.StatusBadRequest)
+		return
+	}
+
 	// roomID := c.Param("roomId")
 	room := game.HubObj.FindRoomByID(roomID)
 	a, _ := c.Writer.(http.ResponseWriter)

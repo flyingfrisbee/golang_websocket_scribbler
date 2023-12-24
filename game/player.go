@@ -126,19 +126,24 @@ func ServeWs(room *Room, w http.ResponseWriter, r *http.Request) {
 
 	// Enable cors
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
+
+	player := &Player{
+		Room:        room,
+		Conn:        nil,
+		MsgToPlayer: make(chan []byte, 256),
+		ID:          userID,
+		Username:    username,
+	}
+	err := room.registerPlayer(player)
+	if err != nil {
+		return
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	player := &Player{
-		Room:        room,
-		Conn:        conn,
-		MsgToPlayer: make(chan []byte, 256),
-		ID:          userID,
-		Username:    username,
-	}
-	player.Room.Register <- player
+	player.Conn = conn
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
