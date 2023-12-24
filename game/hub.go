@@ -41,6 +41,13 @@ func (h *hub) FindRoomByID(id string) *Room {
 	return room
 }
 
+func (h *hub) removeRoomByID(id string) {
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
+
+	delete(h.roomColl, id)
+}
+
 func newHub() *hub {
 	return &hub{
 		roomColl: make(map[string]*Room),
