@@ -1,5 +1,10 @@
 package game
 
+import (
+	"encoding/json"
+	"log"
+)
+
 type Room struct {
 	// All players
 	Players map[int]*Player
@@ -17,6 +22,8 @@ type Room struct {
 	TurnOrder []int
 	// Name of the object to be drawn
 	Words []string
+	// Drawing cache
+	Cache []drawingCoordinate
 }
 
 func (r *Room) Run() {
@@ -45,6 +52,24 @@ func (r *Room) Run() {
 				}
 			}
 		case message := <-r.MsgFromPlayer:
+			var msg userMessage
+			err := json.Unmarshal(message, &msg)
+			if err != nil {
+				log.Println(err)
+				break
+			}
+
+			switch msg.Code {
+			case Drawing:
+				coords, ok := msg.Data.([]drawingCoordinate)
+				if !ok {
+					log.Println(err)
+					continue
+				}
+
+				r.Cache = append(r.Cache, coords...)
+			}
+
 			for _, player := range r.Players {
 				select {
 				case player.MsgToPlayer <- message:
@@ -85,6 +110,19 @@ func (r *Room) unregisterPlayer(p *Player) bool {
 	}
 
 	return len(r.Players) == 0
+}
+
+func (r *Room) generateGameInfo() gameInfo {
+	playersInfo := make([]playerInfo, len(r.TurnOrder))
+	for idx, id := range r.TurnOrder {
+		playersInfo[idx] = r.Players[id].mapToPlayerInfo()
+	}
+	return gameInfo{
+		RoomID:         r.ID,
+		Players:        playersInfo,
+		CurrentTurnIdx: r.CurrentTurnIdx,
+		Word:           r.Words[0],
+	}
 }
 
 func CreateRoom(roomID string) *Room {

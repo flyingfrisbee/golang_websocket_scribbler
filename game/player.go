@@ -44,9 +44,12 @@ type Player struct {
 	// successfully or not
 	AckChan chan bool
 
-	ID       int
-	Username string
-	Score    int
+	ID           int
+	Username     string
+	Score        int
+	ScreenWidth  int
+	ScreenHeight int
+	HasAnswered  bool
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -118,6 +121,17 @@ func (p *Player) writePump() {
 				return
 			}
 		}
+	}
+}
+
+func (p *Player) mapToPlayerInfo() playerInfo {
+	return playerInfo{
+		ID:           p.ID,
+		Username:     p.Username,
+		Score:        p.Score,
+		ScreenWidth:  p.ScreenWidth,
+		ScreenHeight: p.ScreenHeight,
+		HasAnswered:  p.HasAnswered,
 	}
 }
 
