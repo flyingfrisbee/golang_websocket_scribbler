@@ -21,16 +21,21 @@ func TestGenerateWordsInRandomOrder(t *testing.T) {
 }
 
 func TestUnregisterPlayer(t *testing.T) {
-	r := CreateRoom("abcdf")
+	h := newHub()
+	r := h.AddRoomToHub()
+	go r.Run()
 	for i := 1; i < 5; i++ {
 		p := &Player{
 			Room:        r,
 			Conn:        nil,
 			MsgToPlayer: make(chan []byte),
+			AckChan:     make(chan bool),
 			ID:          i,
 			Username:    "test1",
 		}
-		r.registerPlayer(p)
+		r.Register <- p
+		<-p.AckChan
+		close(p.AckChan)
 	}
 
 	wordsLength := len(r.Words)

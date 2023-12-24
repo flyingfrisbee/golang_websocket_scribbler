@@ -1,16 +1,12 @@
 package game
 
-import (
-	"fmt"
-	"sync"
-	"time"
-)
-
 type Room struct {
 	// All players
 	Players map[int]*Player
 	// Inbound messages from the players.
 	MsgFromPlayer chan []byte
+	// Register requests from players.
+	Register chan *Player
 	// Unregister requests from players.
 	Unregister chan *Player
 	// Unique id for the room
@@ -21,31 +17,34 @@ type Room struct {
 	TurnOrder []int
 	// Name of the object to be drawn
 	Words []string
-	// Lock
-	mtx sync.Mutex
-	// Extra check so player can't join room that's due to removal
-	isClosed bool
 }
 
 func (r *Room) Run() {
-	ticker := time.NewTicker(10 * time.Second)
 	defer func() {
-		ticker.Stop()
 		close(r.MsgFromPlayer)
 		close(r.Unregister)
+		close(r.Register)
 		HubObj.removeRoomByID(r.ID)
 	}()
 
 	for {
 		select {
-		case player := <-r.Unregister:
-			r.mtx.Lock()
-			if _, ok := r.Players[player.ID]; ok {
-				r.unregisterPlayer(player)
+		case player := <-r.Register:
+			if len(r.Players) >= 4 {
+				player.AckChan <- false
+				break
 			}
-			r.mtx.Unlock()
+			r.Players[player.ID] = player
+			r.TurnOrder = append(r.TurnOrder, player.ID)
+			player.AckChan <- true
+		case player := <-r.Unregister:
+			if _, ok := r.Players[player.ID]; ok {
+				shouldCloseRoom := r.unregisterPlayer(player)
+				if shouldCloseRoom {
+					return
+				}
+			}
 		case message := <-r.MsgFromPlayer:
-			r.mtx.Lock()
 			for _, player := range r.Players {
 				select {
 				case player.MsgToPlayer <- message:
@@ -53,35 +52,17 @@ func (r *Room) Run() {
 					// Might happen when for some reason the client cannot
 					// process the message, since MsgToPlayer is buffered
 					// channel that means something wrong occured on player
-					r.unregisterPlayer(player)
+					shouldCloseRoom := r.unregisterPlayer(player)
+					if shouldCloseRoom {
+						return
+					}
 				}
 			}
-			r.mtx.Unlock()
-		case <-ticker.C:
-			r.mtx.Lock()
-			if len(r.Players) == 0 {
-				defer r.mtx.Unlock()
-				return
-			}
-			r.mtx.Unlock()
 		}
 	}
 }
 
-func (r *Room) registerPlayer(p *Player) error {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
-
-	if len(r.Players) >= 4 || r.isClosed {
-		return fmt.Errorf("a room can only hosts up to four people")
-	}
-
-	r.Players[p.ID] = p
-	r.TurnOrder = append(r.TurnOrder, p.ID)
-	return nil
-}
-
-func (r *Room) unregisterPlayer(p *Player) {
+func (r *Room) unregisterPlayer(p *Player) bool {
 	close(p.MsgToPlayer)
 	delete(r.Players, p.ID)
 
@@ -103,14 +84,14 @@ func (r *Room) unregisterPlayer(p *Player) {
 		r.CurrentTurnIdx = 0
 	}
 
-	r.isClosed = len(r.Players) == 0
-	// should update game info
+	return len(r.Players) == 0
 }
 
 func CreateRoom(roomID string) *Room {
 	return &Room{
 		Players:        make(map[int]*Player),
 		MsgFromPlayer:  make(chan []byte),
+		Register:       make(chan *Player),
 		Unregister:     make(chan *Player),
 		ID:             roomID,
 		CurrentTurnIdx: 0,

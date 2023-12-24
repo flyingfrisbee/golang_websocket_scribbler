@@ -40,6 +40,9 @@ type Player struct {
 	Conn *websocket.Conn
 	// Buffered channel of outbound messages.
 	MsgToPlayer chan []byte
+	// To receive confirmation from room whether player is registered
+	// successfully or not
+	AckChan chan bool
 
 	ID       int
 	Username string
@@ -102,7 +105,7 @@ func (p *Player) writePump() {
 			// Add queued chat messages to the current websocket message.
 			n := len(p.MsgToPlayer)
 			for i := 0; i < n; i++ {
-				w.Write(newline)
+				// w.Write(newline)
 				w.Write(<-p.MsgToPlayer)
 			}
 
@@ -120,6 +123,12 @@ func (p *Player) writePump() {
 
 // serveWs handles websocket requests from the peer.
 func ServeWs(room *Room, w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Println("user tried to join closed room")
+		}
+	}()
+
 	queryParams := r.URL.Query()
 	userID, _ := strconv.Atoi(queryParams.Get("userId"))
 	username := queryParams.Get("username")
@@ -131,13 +140,18 @@ func ServeWs(room *Room, w http.ResponseWriter, r *http.Request) {
 		Room:        room,
 		Conn:        nil,
 		MsgToPlayer: make(chan []byte, 256),
+		AckChan:     make(chan bool),
 		ID:          userID,
 		Username:    username,
 	}
-	err := room.registerPlayer(player)
-	if err != nil {
+	defer close(player.AckChan)
+
+	room.Register <- player
+	ok := <-player.AckChan
+	if !ok {
 		return
 	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
