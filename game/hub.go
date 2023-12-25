@@ -6,6 +6,11 @@ import (
 	"github.com/google/uuid"
 )
 
+type roomInfo struct {
+	RoomID       string `json:"room_id"`
+	PlayersCount int    `json:"players_count"`
+}
+
 type hub struct {
 	mtx      sync.RWMutex
 	roomColl map[string]*Room
@@ -43,11 +48,20 @@ func (h *hub) FindRoomByID(id string) *Room {
 	return room
 }
 
-func (h *hub) ListRooms() []string {
+func (h *hub) ListRooms() []roomInfo {
 	h.mtx.RLock()
 	defer h.mtx.RUnlock()
 
-	return h.roomIDs
+	result := make([]roomInfo, len(h.roomIDs))
+	for idx, roomID := range h.roomIDs {
+		r := roomInfo{
+			RoomID:       roomID,
+			PlayersCount: len(h.roomColl[roomID].Players),
+		}
+		result[idx] = r
+	}
+
+	return result
 }
 
 func (h *hub) removeRoomByID(id string) {
