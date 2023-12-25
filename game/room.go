@@ -111,6 +111,7 @@ func (r *Room) Run() {
 				log.Println(err)
 				break
 			}
+			return
 		case message := <-r.MsgFromPlayer:
 			var msg userMessage
 			err := json.Unmarshal(message, &msg)
@@ -156,6 +157,7 @@ func (r *Room) Run() {
 				log.Println(err)
 				break
 			}
+			return
 		}
 	}
 }
@@ -185,8 +187,8 @@ func (r *Room) nextTurn(cause NextTurnTrigger) {
 	r.Words = r.Words[1:]
 	r.AnswersCount = 0
 
-	for _, p := range r.Players {
-		p.HasAnswered = false
+	for _, id := range r.TurnOrder {
+		r.Players[id].HasAnswered = false
 	}
 
 	switch cause {
@@ -204,7 +206,8 @@ func (r *Room) sendMessageToPlayers(msg *userMessage) (bool, error) {
 		return false, err
 	}
 
-	for _, player := range r.Players {
+	for _, id := range r.TurnOrder {
+		player := r.Players[id]
 		select {
 		case player.MsgToPlayer <- jsonBytes:
 		default:
@@ -281,7 +284,8 @@ func (r *Room) generateGameInfo() userMessage {
 func (r *Room) findWinner() userMessage {
 	var winner *Player
 	max := 0
-	for _, p := range r.Players {
+	for _, id := range r.TurnOrder {
+		p := r.Players[id]
 		if max < p.Score {
 			max = p.Score
 			winner = p
