@@ -8,7 +8,7 @@ import (
 	"os"
 	"sync"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type DBConn struct {
@@ -63,7 +63,7 @@ func SetupDB() {
 }
 
 func createDBConnection() DBConn {
-	db, err := sql.Open("sqlite3", env.DBPath)
+	db, err := sql.Open("sqlite", env.DBPath)
 	if err != nil {
 		log.Fatal(err)
 	}
