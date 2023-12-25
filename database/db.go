@@ -54,6 +54,31 @@ func (dbc *DBConn) CreateUser(username string) (int, error) {
 	return int(userID), nil
 }
 
+func (dbc *DBConn) DeleteUser(id int, username string) error {
+	dbc.Lock()
+	defer dbc.Unlock()
+
+	result, err := dbc.Conn.Exec(
+		`DELETE FROM user
+		WHERE user_id = ? AND username = ?`,
+		id,
+		username,
+	)
+	if err != nil {
+		return err
+	}
+
+	affectedRows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if affectedRows == 0 {
+		return fmt.Errorf("failed to delete user")
+	}
+	return nil
+}
+
 func (dbc *DBConn) CloseConnection() {
 	dbc.Conn.Close()
 }

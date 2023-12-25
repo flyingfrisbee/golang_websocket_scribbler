@@ -54,6 +54,12 @@ func (r *Room) Run() {
 				break
 			}
 
+			_, duplicatePlayer := r.Players[player.ID]
+			if duplicatePlayer {
+				player.AckChan <- false
+				break
+			}
+
 			r.Players[player.ID] = player
 			r.TurnOrder = append(r.TurnOrder, player.ID)
 			player.AckChan <- true
@@ -132,8 +138,10 @@ func (r *Room) Run() {
 				break
 			}
 
+			playerNotSolo := len(r.Players) > 1
 			// Player that is drawing cannot give answer, hence - 1
-			proceedNextTurn := r.AnswersCount == (len(r.Players) - 1)
+			everyoneAlreadyAnswered := r.AnswersCount == (len(r.Players) - 1)
+			proceedNextTurn := playerNotSolo && everyoneAlreadyAnswered
 			if !proceedNextTurn {
 				break
 			}

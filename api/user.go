@@ -1,7 +1,7 @@
 package api
 
 import (
-	"GithubRepository/golang_websocket_scribbler/database"
+	db "GithubRepository/golang_websocket_scribbler/database"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,7 +33,7 @@ func createUser(c *gin.Context) {
 		return
 	}
 
-	id, err := database.DB.CreateUser(req.Username)
+	id, err := db.DB.CreateUser(req.Username)
 	if err != nil {
 		errMsg := fmt.Sprintf("error occured when creating user: %s", err.Error())
 		writeResponse(c, nil, errMsg, http.StatusInternalServerError)
@@ -46,7 +46,37 @@ func createUser(c *gin.Context) {
 	writeResponse(c, &resp, "success creating user", http.StatusOK)
 }
 
+type deleteUserRequest struct {
+	UserID   int    `json:"user_id"`
+	Username string `json:"username"`
+}
+
+func deleteUser(c *gin.Context) {
+	jsonBytes, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		writeResponse(c, nil, "failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer c.Request.Body.Close()
+
+	var req deleteUserRequest
+	err = json.Unmarshal(jsonBytes, &req)
+	if err != nil {
+		writeResponse(c, nil, "failed to parse JSON request", http.StatusBadRequest)
+		return
+	}
+
+	err = db.DB.DeleteUser(req.UserID, req.Username)
+	if err != nil {
+		writeResponse(c, nil, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	writeResponse(c, req, "success deleted user", http.StatusOK)
+}
+
 func defineUserRoute(r *gin.Engine) {
 	userRoute := r.Group("/users")
 	userRoute.POST("/register", createUser)
+	userRoute.POST("/delete", deleteUser)
 }
