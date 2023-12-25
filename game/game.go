@@ -17,8 +17,10 @@ type userMessage struct {
 }
 
 type drawingCoordinate struct {
-	X float32 `json:"x"`
-	Y float32 `json:"y"`
+	StartX float32 `json:"start_x"`
+	StartY float32 `json:"start_y"`
+	EndX   float32 `json:"end_x"`
+	EndY   float32 `json:"end_y"`
 }
 
 type gameInfo struct {
