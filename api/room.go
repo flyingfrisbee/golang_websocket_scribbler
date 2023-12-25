@@ -8,9 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var (
-	roomID string
-)
+func listRooms(c *gin.Context) {
+	writeResponse(c, game.HubObj.ListRooms(), "success fetch all room ids", http.StatusOK)
+}
 
 func createRoom(c *gin.Context) {
 	_, err := strconv.Atoi(c.Request.URL.Query().Get("userId"))
@@ -23,9 +23,6 @@ func createRoom(c *gin.Context) {
 	go room.Run()
 	a, _ := c.Writer.(http.ResponseWriter)
 	game.ServeWs(room, a, c.Request)
-
-	// TODO: Delete this later, for testing purpose only
-	roomID = room.ID
 }
 
 func joinRoom(c *gin.Context) {
@@ -35,14 +32,19 @@ func joinRoom(c *gin.Context) {
 		return
 	}
 
-	// roomID := c.Param("roomId")
+	roomID := c.Param("roomId")
 	room := game.HubObj.FindRoomByID(roomID)
+	if room == nil {
+		writeResponse(c, nil, "room not found", http.StatusBadRequest)
+		return
+	}
 	a, _ := c.Writer.(http.ResponseWriter)
 	game.ServeWs(room, a, c.Request)
 }
 
 func defineRoomRoute(r *gin.Engine) {
 	roomRoute := r.Group("/rooms")
+	roomRoute.GET("/", listRooms)
 	roomRoute.GET("/create", createRoom)
 	roomRoute.GET("/join/:roomId", joinRoom)
 }

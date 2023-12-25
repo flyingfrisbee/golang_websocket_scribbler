@@ -146,17 +146,29 @@ func ServeWs(room *Room, w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	userID, _ := strconv.Atoi(queryParams.Get("userId"))
 	username := queryParams.Get("username")
+	screenWidth, err := strconv.Atoi(queryParams.Get("width"))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	screenHeight, err := strconv.Atoi(queryParams.Get("height"))
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
 	// Enable cors
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 
 	player := &Player{
-		Room:        room,
-		Conn:        nil,
-		MsgToPlayer: make(chan []byte, 256),
-		AckChan:     make(chan bool),
-		ID:          userID,
-		Username:    username,
+		Room:         room,
+		Conn:         nil,
+		MsgToPlayer:  make(chan []byte, 256),
+		AckChan:      make(chan bool),
+		ID:           userID,
+		Username:     username,
+		ScreenWidth:  screenWidth,
+		ScreenHeight: screenHeight,
 	}
 	defer close(player.AckChan)
 

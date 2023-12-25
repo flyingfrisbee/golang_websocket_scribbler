@@ -9,6 +9,7 @@ import (
 type hub struct {
 	mtx      sync.RWMutex
 	roomColl map[string]*Room
+	roomIDs  []string
 }
 
 func (h *hub) AddRoomToHub() *Room {
@@ -26,6 +27,7 @@ func (h *hub) AddRoomToHub() *Room {
 
 	room := CreateRoom(id)
 	h.roomColl[id] = room
+	h.roomIDs = append(h.roomIDs, id)
 	return room
 }
 
@@ -41,11 +43,24 @@ func (h *hub) FindRoomByID(id string) *Room {
 	return room
 }
 
+func (h *hub) ListRooms() []string {
+	h.mtx.RLock()
+	defer h.mtx.RUnlock()
+
+	return h.roomIDs
+}
+
 func (h *hub) removeRoomByID(id string) {
 	h.mtx.Lock()
 	defer h.mtx.Unlock()
 
 	delete(h.roomColl, id)
+	for i, roomID := range h.roomIDs {
+		if roomID == id {
+			h.roomIDs = append(h.roomIDs[:i], h.roomIDs[i+1:]...)
+			break
+		}
+	}
 }
 
 func newHub() *hub {
