@@ -32,7 +32,7 @@ type Room struct {
 	// Name of the object to be drawn
 	Words []string
 	// Drawing cache
-	Cache []interface{}
+	Cache [][]interface{}
 	// Number of people that has submitted their answer
 	AnswersCount int
 }
@@ -107,6 +107,13 @@ func (r *Room) Run() {
 				break
 			}
 
+			msg := r.generateGameInfo()
+			_, err := r.sendMessageToPlayers(&msg)
+			if err != nil {
+				log.Println(err)
+				break
+			}
+
 			if !proceedNextTurn {
 				break
 			}
@@ -125,8 +132,8 @@ func (r *Room) Run() {
 				break
 			}
 
-			msg := r.generateGameInfo()
-			_, err := r.sendMessageToPlayers(&msg)
+			msg = r.generateGameInfo()
+			_, err = r.sendMessageToPlayers(&msg)
 			if err != nil {
 				log.Println(err)
 				break
@@ -262,7 +269,8 @@ func (r *Room) handleIncomingMessage(msg *userMessage) error {
 			return fmt.Errorf("failed when converting message from player: drawing")
 		}
 
-		r.Cache = append(r.Cache, coords...)
+		r.Cache = append(r.Cache, coords)
+		msg.Data = [][]interface{}{coords}
 	case ClearDrawing:
 		r.Cache = nil
 	case Answer:
