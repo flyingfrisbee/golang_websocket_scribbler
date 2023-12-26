@@ -21,7 +21,7 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 
 	// Maximum message size allowed from peer.
-	maxMessageSize = 512
+	maxMessageSize = 2097152
 )
 
 var (
@@ -108,7 +108,7 @@ func (p *Player) writePump() {
 			// Add queued chat messages to the current websocket message.
 			n := len(p.MsgToPlayer)
 			for i := 0; i < n; i++ {
-				// w.Write(newline)
+				w.Write(newline)
 				w.Write(<-p.MsgToPlayer)
 			}
 

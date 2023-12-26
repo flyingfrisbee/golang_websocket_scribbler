@@ -7,7 +7,7 @@ const (
 	Drawing                          // receivedData: []drawing, sendData: []drawing
 	ClearDrawing                     // receivedData: nil, sendData: nil
 	Answer                           // receivedData: string, sendData: player
-	GameFinished                     // sendData: player that wins
+	GameFinished                     // sendData: nil, check for winner from client
 )
 
 type userMessage struct {

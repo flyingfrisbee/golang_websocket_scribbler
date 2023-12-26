@@ -32,7 +32,7 @@ type Room struct {
 	// Name of the object to be drawn
 	Words []string
 	// Drawing cache
-	Cache []drawingCoordinate
+	Cache []interface{}
 	// Number of people that has submitted their answer
 	AnswersCount int
 }
@@ -56,6 +56,13 @@ func (r *Room) Run() {
 
 			_, duplicatePlayer := r.Players[player.ID]
 			if duplicatePlayer {
+				player.AckChan <- false
+				break
+			}
+
+			gameConcludes := len(r.Words) == 0
+			if gameConcludes {
+				// do nothing, wait until all players left the room
 				player.AckChan <- false
 				break
 			}
@@ -94,31 +101,43 @@ func (r *Room) Run() {
 				return
 			}
 
+			gameConcludes := len(r.Words) == 0
+			if gameConcludes {
+				// do nothing, wait until all players left the room
+				break
+			}
+
 			if !proceedNextTurn {
 				break
 			}
 
-			r.nextTurn(CurrentTurnPlayerLeft)
+			gameConcludes = r.nextTurn(CurrentTurnPlayerLeft)
+			if gameConcludes {
+				msg := userMessage{
+					Code: GameFinished,
+					Data: nil,
+				}
+				_, err := r.sendMessageToPlayers(&msg)
+				if err != nil {
+					log.Println(err)
+					break
+				}
+				break
+			}
+
 			msg := r.generateGameInfo()
 			_, err := r.sendMessageToPlayers(&msg)
 			if err != nil {
 				log.Println(err)
 				break
 			}
-
-			gameFinished := len(r.Words) == 0
-			if !gameFinished {
-				break
-			}
-
-			msg = r.findWinner()
-			_, err = r.sendMessageToPlayers(&msg)
-			if err != nil {
-				log.Println(err)
-				break
-			}
-			return
 		case message := <-r.MsgFromPlayer:
+			gameConcludes := len(r.Words) == 0
+			if gameConcludes {
+				// do nothing, wait until all players left the room
+				break
+			}
+
 			var msg userMessage
 			err := json.Unmarshal(message, &msg)
 			if err != nil {
@@ -146,26 +165,26 @@ func (r *Room) Run() {
 				break
 			}
 
-			r.nextTurn(AllPlayersHaveSubmittedAnswer)
+			gameConcludes = r.nextTurn(AllPlayersHaveSubmittedAnswer)
+			if gameConcludes {
+				msg := userMessage{
+					Code: GameFinished,
+					Data: nil,
+				}
+				_, err := r.sendMessageToPlayers(&msg)
+				if err != nil {
+					log.Println(err)
+					break
+				}
+				break
+			}
+
 			msg = r.generateGameInfo()
 			_, err = r.sendMessageToPlayers(&msg)
 			if err != nil {
 				log.Println(err)
 				break
 			}
-
-			gameFinished := len(r.Words) == 0
-			if !gameFinished {
-				break
-			}
-
-			msg = r.findWinner()
-			_, err = r.sendMessageToPlayers(&msg)
-			if err != nil {
-				log.Println(err)
-				break
-			}
-			return
 		}
 	}
 }
@@ -190,7 +209,7 @@ func (r *Room) unregisterPlayer(p *Player) bool {
 	return len(r.Players) == 0
 }
 
-func (r *Room) nextTurn(cause NextTurnTrigger) {
+func (r *Room) nextTurn(cause NextTurnTrigger) bool {
 	r.Cache = nil
 	r.Words = r.Words[1:]
 	r.AnswersCount = 0
@@ -206,6 +225,8 @@ func (r *Room) nextTurn(cause NextTurnTrigger) {
 			r.CurrentTurnIdx = 0
 		}
 	}
+
+	return len(r.Words) == 0
 }
 
 func (r *Room) sendMessageToPlayers(msg *userMessage) (bool, error) {
@@ -236,7 +257,7 @@ func (r *Room) sendMessageToPlayers(msg *userMessage) (bool, error) {
 func (r *Room) handleIncomingMessage(msg *userMessage) error {
 	switch msg.Code {
 	case Drawing:
-		coords, ok := msg.Data.([]drawingCoordinate)
+		coords, ok := msg.Data.([]interface{})
 		if !ok {
 			return fmt.Errorf("failed when converting message from player: drawing")
 		}
