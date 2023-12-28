@@ -3,11 +3,11 @@ package game
 type ActionCode int
 
 const (
-	UpdateGameInfo ActionCode = iota // sendData: gameInfo
-	Drawing                          // receivedData: []drawing, sendData: []drawing
-	ClearDrawing                     // receivedData: nil, sendData: nil
-	Answer                           // receivedData: string, sendData: player
-	GameFinished                     // sendData: nil, check for winner from client
+	UpdateGameInfo ActionCode = iota
+	Drawing
+	ClearDrawing
+	Answer
+	GameFinished
 )
 
 type userMessage struct {
@@ -38,21 +38,3 @@ type playerInfo struct {
 	ScreenHeight int    `json:"screen_height"`
 	HasAnswered  bool   `json:"has_answered"`
 }
-
-// USER CAN DRAW
-// get coordinates of the lines, write to cache, broadcast msg
-
-// USER CAN CLEAR THE DRAWING
-// delete cache, broadcast msg
-
-// USER CAN ANSWER
-// validate answer, grant score, update gameinfo, potentially change turn
-
-// USER CAN JOIN ROOM
-// send draw cache, update gameinfo
-
-// USER CAN LEAVE ROOM
-// update gameinfo, potentially change turn
-
-// NO MORE DRAWING OBJECTS
-// game finished, declare winner, close room

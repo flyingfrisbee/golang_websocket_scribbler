@@ -7,9 +7,6 @@ import (
 )
 
 func Run() {
-	// required endpoints:
-	// create room (generate random uuid as the key of the map)
-	// join room (find the map based on the key provided)
 	env.GenerateEnvVar()
 	db.SetupDB()
 	defer db.DB.CloseConnection()

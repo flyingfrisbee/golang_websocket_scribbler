@@ -237,6 +237,10 @@ func (r *Room) nextTurn(cause NextTurnTrigger) bool {
 }
 
 func (r *Room) sendMessageToPlayers(msg *userMessage) (bool, error) {
+	if msg.Code == Answer && msg.Data == nil {
+		return false, nil
+	}
+
 	jsonBytes, err := json.Marshal(&msg)
 	if err != nil {
 		return false, err
@@ -290,9 +294,10 @@ func (r *Room) handleIncomingMessage(msg *userMessage) error {
 			}
 			player.HasAnswered = true
 			r.AnswersCount++
+			msg.Data = player.mapToPlayerInfo()
+			break
 		}
-
-		msg.Data = player.mapToPlayerInfo()
+		msg.Data = nil
 	}
 
 	return nil
