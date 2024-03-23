@@ -72,11 +72,16 @@ func deleteUser(c *gin.Context) {
 		return
 	}
 
-	writeResponse(c, req, "success deleted user", http.StatusOK)
+	writeResponse(c, nil, "success deleted user", http.StatusOK)
+}
+
+func deleteUserPublic(c *gin.Context) {
+	http.ServeFile(c.Writer, c.Request, "index.html")
 }
 
 func defineUserRoute(r *gin.Engine) {
 	userRoute := r.Group("/users")
 	userRoute.POST("/register", createUser)
 	userRoute.POST("/delete", deleteUser)
+	userRoute.GET("/delete-public", deleteUserPublic)
 }

@@ -60,8 +60,7 @@ func (dbc *DBConn) DeleteUser(id int, username string) error {
 
 	result, err := dbc.Conn.Exec(
 		`DELETE FROM user
-		WHERE user_id = ? AND username = ?`,
-		id,
+		WHERE username = ?`,
 		username,
 	)
 	if err != nil {
@@ -74,7 +73,7 @@ func (dbc *DBConn) DeleteUser(id int, username string) error {
 	}
 
 	if affectedRows == 0 {
-		return fmt.Errorf("failed to delete user")
+		return fmt.Errorf("user not found")
 	}
 	return nil
 }
